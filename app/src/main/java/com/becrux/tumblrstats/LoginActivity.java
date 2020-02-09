@@ -33,7 +33,7 @@ public class LoginActivity extends Activity {
             if (url.toLowerCase().contains(CALLBACK_URL.toLowerCase())) {
                 Uri uri = Uri.parse(url);
                 for (String strQuery : uri.getQueryParameterNames())
-                    if (strQuery == "oauth_verifier") {
+                    if (strQuery.contentEquals("oauth_verifier")) {
                         try {
                             commonsHttpOAuthProvider.retrieveAccessToken(commonsHttpOAuthConsumer, uri.getQueryParameter(strQuery));
                         } catch (OAuthMessageSignerException e) {

@@ -17,6 +17,12 @@
             android:layout_height="wrap_content"
             android:text="Authenticate" />
 
+        <Button
+            android:id="@+id/btnClearTokens"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CLEAR TOKENS" />
+
         <TextView
             android:id="@+id/textView"
             android:layout_width="match_parent"
