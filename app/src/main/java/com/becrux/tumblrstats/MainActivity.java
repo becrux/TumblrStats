@@ -5,27 +5,61 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
-import com.tumblr.jumblr.JumblrClient;
 import com.tumblr.jumblr.exceptions.JumblrException;
 
+import org.scribe.exceptions.OAuthException;
+import org.scribe.model.Token;
+
 public class MainActivity extends AppCompatActivity {
+
+    private TumblrClient client;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final MainActivity me = this;
+        client = new TumblrClient(getApplicationContext());
 
-        findViewById(R.id.btnAuthenticate).setOnClickListener(new View.OnClickListener() {
+        final TextView tv = findViewById(R.id.textView);
+        tv.setText("");
+        client.setOnLoginListener(new TumblrClient.OnLoginListener() {
             @Override
-            public void onClick(View v) {
+            public void onAccessGranted() {
+                tv.append("Logged in!\n");
+            }
+
+            @Override
+            public void onAccessDenied() {
+                tv.append("Login failed\n");
+            }
+        });
+        client.setOnFailureListener(new TumblrClient.OnFailureListener() {
+            @Override
+            public void onFailure(JumblrException e) {
+                tv.append("Command failure\n");
+            }
+
+            @Override
+            public void onNetworkFailure(OAuthException e) {
+                tv.append("Network error\n");
+            }
+        });
+
+        final Activity me = this;
+        client.setOnAuthenticationListener(new TumblrClient.OnAuthenticationListener() {
+            @Override
+            public void onAuthentication(Token requestToken, String authenticationUrl) {
                 Intent i = new Intent(me, LoginActivity.class);
+                i.putExtra(Constants.REQUEST_TOKEN, requestToken);
+                i.putExtra(Constants.AUTH_URL, authenticationUrl);
                 startActivityForResult(i, Constants.PERFORM_LOGIN);
             }
         });
@@ -40,60 +74,35 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        TextView tv = findViewById(R.id.textView);
-        tv.setText("");
-
-        SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
-        String tokenKey = sharedPref.getString(Constants.OAUTH_TOKEN_KEY, "");
-
-        if (!tokenKey.isEmpty()) {
-            JumblrClient client = new JumblrClient(getString(R.string.consumer_key), getString(R.string.consumer_secret));
-            client.setToken(tokenKey, sharedPref.getString(Constants.OAUTH_TOKEN_SECRET_KEY, ""));
-
-            try {
-                String userName = client.user().getName();
-
-                tv.append("Token: " + tokenKey + "\n");
-                tv.append("Secret: " + sharedPref.getString(Constants.OAUTH_TOKEN_SECRET_KEY, "") + "\n");
-
-                tv.append("User: " + userName + "\n");
-                tv.append("Blog: " + client.user().getBlogs().get(0).getName() + "\n");
-
-            } catch (JumblrException e) {
-                getPreferences(Context.MODE_PRIVATE).edit()
-                        .remove(Constants.OAUTH_TOKEN_KEY)
-                        .remove(Constants.OAUTH_TOKEN_SECRET_KEY)
-                        .commit();
-
-                tv.append("Not authenticated\n");
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                client.login();
             }
-        }
+        });
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == Constants.PERFORM_LOGIN) {
-            if(resultCode == Activity.RESULT_OK){
-                JumblrClient client = new JumblrClient(getString(R.string.consumer_key), getString(R.string.consumer_secret));
-                client.setToken(data.getStringExtra(Constants.OAUTH_TOKEN_KEY), data.getStringExtra(Constants.OAUTH_TOKEN_SECRET_KEY));
+        Log.v(Constants.APP_NAME, "ActivityResult");
 
-                TextView tv = findViewById(R.id.textView);
+        switch (requestCode) {
+            case Constants.PERFORM_LOGIN:
+                if (resultCode != RESULT_OK) {
+                    ((TextView) findViewById(R.id.textView)).append("Login failed\n");
+                    return;
+                }
 
-                tv.append("Token: " + data.getStringExtra(Constants.OAUTH_TOKEN_KEY) + "\n");
-                tv.append("Secret: " + data.getStringExtra(Constants.OAUTH_TOKEN_SECRET_KEY) + "\n");
+                client.login(
+                        (Token) data.getSerializableExtra(Constants.REQUEST_TOKEN),
+                        data.getStringExtra(Constants.OAUTH_VERIFIER)
+                );
+                break;
 
-                tv.append("User: " + client.user().getName() + "\n");
-                tv.append("Blog: " + client.user().getBlogs().get(0).getName() + "\n");
-
-                getPreferences(Context.MODE_PRIVATE).edit()
-                        .putString(Constants.OAUTH_TOKEN_KEY, data.getStringExtra(Constants.OAUTH_TOKEN_KEY))
-                        .putString(Constants.OAUTH_TOKEN_SECRET_KEY, data.getStringExtra(Constants.OAUTH_TOKEN_SECRET_KEY))
-                        .commit();
-            }
-            else if (resultCode == Activity.RESULT_CANCELED) {
-            }
+            default:
+                break;
         }
     }
 }
