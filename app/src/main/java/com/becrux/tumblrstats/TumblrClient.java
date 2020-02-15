@@ -10,12 +10,8 @@ import com.tumblr.jumblr.JumblrClient;
 import com.tumblr.jumblr.exceptions.JumblrException;
 
 import org.scribe.builder.ServiceBuilder;
-import org.scribe.builder.api.DefaultApi10a;
-import org.scribe.builder.api.DefaultApi20;
-import org.scribe.builder.api.TumblrApi;
 import org.scribe.exceptions.OAuthConnectionException;
 import org.scribe.exceptions.OAuthException;
-import org.scribe.model.OAuthConfig;
 import org.scribe.model.Token;
 import org.scribe.model.Verifier;
 import org.scribe.oauth.OAuthService;
@@ -48,7 +44,6 @@ public final class TumblrClient {
     }
 
     private class RequestTokenTask extends AsyncTask<Void, Void, String> {
-        private OnLoginListener onLoginListener;
         private OnFailureListener onFailureListener;
         private OnAuthenticationListener onAuthenticationListener;
         private Token requestToken;
@@ -57,14 +52,12 @@ public final class TumblrClient {
 
         public RequestTokenTask(
                 OAuthService oAuthService,
-                OnLoginListener onLoginListener,
                 OnFailureListener onFailureListener,
                 OnAuthenticationListener onAuthenticationListener) {
             super();
 
             this.requestToken = null;
             this.oAuthService = oAuthService;
-            this.onLoginListener = onLoginListener;
             this.onFailureListener = onFailureListener;
             this.onAuthenticationListener = onAuthenticationListener;
             this.networkExc = null;
@@ -209,13 +202,11 @@ public final class TumblrClient {
 
         @Override
         public void write(int b) throws IOException {
-            byte[] bytes = new byte[1];
-            bytes[0] = (byte) (b & 0xff);
-            mem = mem + new String(bytes);
-
-            if (mem.endsWith ("\n")) {
-                mem = mem.substring (0, mem.length () - 1);
-                flush ();
+            char c = (char) (b & 0xff);
+            if (c == '\n') {
+                flush();
+            } else {
+                mem += new Character(c);
             }
         }
 
@@ -260,7 +251,7 @@ public final class TumblrClient {
                 .debugStream(new LogOutputStream())
                 .build();
 
-        new RequestTokenTask(oAuthService, onLoginListener, onFailureListener, onAuthenticationListener).execute();
+        new RequestTokenTask(oAuthService, onFailureListener, onAuthenticationListener).execute();
     }
 
     public void login() {
