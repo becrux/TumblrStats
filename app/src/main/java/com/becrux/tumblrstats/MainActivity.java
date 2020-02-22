@@ -2,7 +2,6 @@ package com.becrux.tumblrstats;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -12,14 +11,13 @@ import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
-import com.tumblr.jumblr.exceptions.JumblrException;
-
 import org.scribe.exceptions.OAuthException;
 import org.scribe.model.Token;
 
 public class MainActivity extends AppCompatActivity {
 
     private TumblrClient client;
+    private TumblrAuthenticate authenticator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,10 +28,32 @@ public class MainActivity extends AppCompatActivity {
 
         final TextView tv = findViewById(R.id.textView);
         tv.setText("");
+
         client.setOnLoginListener(new TumblrClient.OnLoginListener() {
             @Override
             public void onAccessGranted() {
                 tv.append("Logged in!\n");
+
+                tv.append("Me: " + client.getMe().getName() + "\n");
+                tv.append("My blogs:\n");
+                for (UserInfo.Blog blog : client.getMe().getBlogs()) {
+                    tv.append("\t" + blog.getName() + "\n");
+                    tv.append("\t\t" + blog.getTitle() + "\n");
+                }
+            }
+
+            @Override
+            public void onAccessRequest(
+                    TumblrAuthenticate authenticator,
+                    Token requestToken,
+                    String authenticationUrl) {
+
+                setAuthenticator(authenticator);
+
+                Intent i = new Intent(MainActivity.this, LoginActivity.class);
+                i.putExtra(Constants.REQUEST_TOKEN, requestToken);
+                i.putExtra(Constants.AUTH_URL, authenticationUrl);
+                startActivityForResult(i, Constants.PERFORM_LOGIN);
             }
 
             @Override
@@ -41,9 +61,10 @@ public class MainActivity extends AppCompatActivity {
                 tv.append("Login failed\n");
             }
         });
+
         client.setOnFailureListener(new TumblrClient.OnFailureListener() {
             @Override
-            public void onFailure(JumblrException e) {
+            public void onFailure(TumblrException e) {
                 tv.append("Command failure\n");
             }
 
@@ -53,24 +74,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        final Activity me = this;
-        client.setOnAuthenticationListener(new TumblrClient.OnAuthenticationListener() {
-            @Override
-            public void onAuthentication(Token requestToken, String authenticationUrl) {
-                Intent i = new Intent(me, LoginActivity.class);
-                i.putExtra(Constants.REQUEST_TOKEN, requestToken);
-                i.putExtra(Constants.AUTH_URL, authenticationUrl);
-                startActivityForResult(i, Constants.PERFORM_LOGIN);
-            }
-        });
-
         findViewById(R.id.btnClearTokens).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                getPreferences(Context.MODE_PRIVATE).edit()
+                getSharedPreferences(Constants.APP_NAME, Context.MODE_PRIVATE).edit()
                         .remove(Constants.OAUTH_TOKEN_KEY)
                         .remove(Constants.OAUTH_TOKEN_SECRET_KEY)
-                        .commit();
+                        .apply();
             }
         });
 
@@ -80,6 +90,10 @@ public class MainActivity extends AppCompatActivity {
                 client.login();
             }
         });
+    }
+
+    private void setAuthenticator(TumblrAuthenticate authenticator) {
+        this.authenticator = authenticator;
     }
 
     @Override
@@ -95,9 +109,9 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                client.login(
-                        (Token) data.getSerializableExtra(Constants.REQUEST_TOKEN),
-                        data.getStringExtra(Constants.OAUTH_VERIFIER)
+                authenticator.verify(
+                    (Token) data.getSerializableExtra(Constants.REQUEST_TOKEN),
+                            data.getStringExtra(Constants.OAUTH_VERIFIER)
                 );
                 break;
 

@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -56,6 +57,16 @@ public class LoginActivity extends Activity {
 
         webView = findViewById(R.id.webView);
         webView.getSettings().setJavaScriptEnabled(true);
+
+        // We need this WebView only once, in order to perform a Tumblr login
+        // so don't keep track about this visit
+        webView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webView.getSettings().setAppCacheEnabled(false);
+        webView.getSettings().setSaveFormData(false);
+        webView.getSettings().setGeolocationEnabled(false);
+        webView.getSettings().setDatabaseEnabled(false);
+        webView.getSettings().setDomStorageEnabled(false);
+
         webView.setWebViewClient(new CustomWebViewClient(
                 (Token) getIntent().getSerializableExtra(Constants.REQUEST_TOKEN))
         );
