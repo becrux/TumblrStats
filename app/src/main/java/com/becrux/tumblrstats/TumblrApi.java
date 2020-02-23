@@ -1,6 +1,8 @@
 package com.becrux.tumblrstats;
 
+import android.content.Context;
 import android.os.AsyncTask;
+import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,14 +17,9 @@ import java.util.Map;
 
 public abstract class TumblrApi<T> {
 
-    private OAuthService service;
-    private Token authToken;
-    private String appId;
-    private String appVersion;
-
     public interface OnCompletion<T> {
-        public void onSuccess(T result);
-        public void onFailure(TumblrException e);
+        void onSuccess(T result);
+        void onFailure(TumblrException e);
     }
 
     private static class TumblrCall<T> extends AsyncTask<OAuthRequest, Void, String> {
@@ -61,6 +58,8 @@ public abstract class TumblrApi<T> {
             }
 
             try {
+                Log.v(Constants.APP_NAME, "JSON Response: " + jsonResponse);
+
                 JSONObject rootObj = new JSONObject(jsonResponse);
 
                 JSONObject metaObj = rootObj.getJSONObject("meta");
@@ -90,24 +89,45 @@ public abstract class TumblrApi<T> {
         }
     }
 
+    private Context context;
+    private OAuthService service;
+    private Token authToken;
+    private String appId;
+    private String appVersion;
+
     protected TumblrApi(
+            Context context,
             OAuthService service,
             Token authToken,
             String appId,
             String appVersion) {
         super();
 
+        this.context = context;
         this.service = service;
         this.authToken = authToken;
         this.appId = appId;
         this.appVersion = appVersion;
     }
 
+    protected Context getContext() {
+        return context;
+    }
+
     protected abstract String getPath();
+    protected Map<String, String> defaultParams() {
+        return null;
+    }
     protected abstract T readData(JSONObject jsonObject) throws JSONException;
 
     public void call(Map<String, ?> queryParams, OnCompletion<T> onCompletion) {
         OAuthRequest request = new OAuthRequest(Verb.GET, Constants.API_ENDPOINT + getPath());
+
+        if (defaultParams() != null) {
+            for (Map.Entry<String, ?> entry : defaultParams().entrySet()) {
+                request.addQuerystringParameter(entry.getKey(), entry.getValue().toString());
+            }
+        }
 
         if (queryParams != null) {
             for (Map.Entry<String, ?> entry : queryParams.entrySet()) {
@@ -116,6 +136,9 @@ public abstract class TumblrApi<T> {
         }
 
         request.addHeader("User-Agent", appId + "/" + appVersion);
+
+        Log.v(Constants.APP_NAME, "Request: " + request.toString());
+
         service.signRequest(authToken, request);
 
         new TumblrCall<T>(this, onCompletion).execute(request);

@@ -12,7 +12,15 @@ import org.scribe.exceptions.OAuthException;
 import org.scribe.model.Token;
 import org.scribe.oauth.OAuthService;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Map;
+
 public final class TumblrClient {
+
+    public interface OnCompletion<T> {
+        void onSuccess(T result);
+    }
 
     public interface OnFailureListener {
         void onFailure(TumblrException e);
@@ -93,7 +101,7 @@ public final class TumblrClient {
     private void login(Token authToken) {
         this.authToken = authToken;
 
-        new UserInfo.Api(oAuthService, authToken, appName, appVersion)
+        new UserInfo.Api(context, oAuthService, authToken, appName, appVersion, null)
                 .call(new TumblrApi.OnCompletion<UserInfo.Data>() {
                     @Override
                     public void onSuccess(UserInfo.Data result) {
@@ -132,7 +140,6 @@ public final class TumblrClient {
         if (prefs.contains(Constants.OAUTH_TOKEN_KEY) && prefs.contains(Constants.OAUTH_TOKEN_SECRET_KEY)) {
 
             // ok, we already have authentication tokens, let's try them first
-
             authToken = new Token(
                     prefs.getString(Constants.OAUTH_TOKEN_KEY, ""),
                     prefs.getString(Constants.OAUTH_TOKEN_SECRET_KEY, "")
@@ -144,6 +151,57 @@ public final class TumblrClient {
             // never logged in before, do that
             doLogin();
         }
+    }
+
+    public <T> void call(
+            Class<? extends TumblrApi<T>> clazz,
+            Map<String, ?> queryParams,
+            final OnCompletion<T> onCompletion,
+            String ... additionalArgs) {
+
+        try {
+            Class[] cArg = new Class[] {
+                    Context.class,
+                    OAuthService.class,
+                    Token.class,
+                    String.class,
+                    String.class,
+                    String[].class
+                };
+
+            clazz.getDeclaredConstructor(cArg)
+                    .newInstance(
+                            context,
+                            oAuthService,
+                            authToken,
+                            appName,
+                            appVersion,
+                            additionalArgs)
+                    .call(queryParams, new TumblrApi.OnCompletion<T>() {
+                        @Override
+                        public void onSuccess(T result) {
+                            if (onCompletion != null)
+                                onCompletion.onSuccess(result);
+                        }
+
+                        @Override
+                        public void onFailure(TumblrException e) {
+                            if (onFailureListener != null)
+                                onFailureListener.onFailure(e);
+                        }
+                    });
+        } catch (IllegalAccessException |
+                NoSuchMethodException |
+                InvocationTargetException |
+                InstantiationException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public <T> void call(Class<? extends TumblrApi<T>> clazz,
+                         OnCompletion<T> onCompletion,
+                         String ... additionalArgs) {
+        call(clazz, null, onCompletion, additionalArgs);
     }
 
     public void setOnLoginListener(OnLoginListener onLoginListener) {

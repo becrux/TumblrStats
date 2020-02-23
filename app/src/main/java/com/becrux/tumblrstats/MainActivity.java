@@ -39,6 +39,21 @@ public class MainActivity extends AppCompatActivity {
                 for (UserInfo.Blog blog : client.getMe().getBlogs()) {
                     tv.append("\t" + blog.getName() + "\n");
                     tv.append("\t\t" + blog.getTitle() + "\n");
+
+                    client.call(BlogInfo.Api.class, new TumblrClient.OnCompletion<BlogInfo.Data>() {
+                            @Override
+                            public void onSuccess(BlogInfo.Data result) {
+                                tv.append("\t\t\t" + result.getName() + "\n");
+                                tv.append("\t\t\t" + result.getTitle() + "\n");
+                                tv.append("\t\t\t" + result.getDescription() + "\n");
+                                tv.append("\t\t\t" + result.getPosts() + "\n");
+                                tv.append("\t\t\t" + result.getUpdated().toString() + "\n");
+                                tv.append("\t\t\t" + result.isAsk() + "\n");
+                                tv.append("\t\t\t" + result.isAskAnon() + "\n");
+                            }
+                        },
+                        blog.getName()
+                    );
                 }
             }
 
