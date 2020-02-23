@@ -193,7 +193,7 @@ public interface BlogInfo {
                 String[] additionalArgs) {
             super(context, service, authToken, appId, appVersion);
 
-            this.blogId = additionalArgs[0] ;
+            this.blogId = additionalArgs[0];
         }
 
         @Override
